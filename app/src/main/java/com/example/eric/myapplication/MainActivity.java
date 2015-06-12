@@ -47,6 +47,8 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
     private SharedPreferences prefs;
     private SharedPreferences.Editor prefEditor;
 
+    private TextView tv2;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,6 +68,8 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
         // parsers.add(new BeaconParser().setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
 
         beaconManager.bind(this);
+
+        tv2 = (TextView) this.findViewById(R.id.TxtBeaconDistance);
 
 //        BluetoothManager btManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
 //
@@ -180,7 +184,7 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
         if (!prefs.getString(THE_BEACON, "").isEmpty()) {
             tv.setText(prefs.getString(THE_BEACON, ""));
         }
-        TextView tv2 = (TextView) this.findViewById(R.id.TxtBeaconDistance);
+
         if (!prefs.getString(THE_BEACON_DISTANCE, "").isEmpty()) {
             tv2.setText(prefs.getString(THE_BEACON_DISTANCE, ""));
         }
@@ -243,25 +247,46 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
 
         beaconManager.setMonitorNotifier(new MonitorNotifier() {
             @Override
-            public void didEnterRegion(Region region) {
+            public void didEnterRegion(final Region region) {
                 Log.i(TAG, "I just saw an beacon for the first time! "+region.toString());
                 // Toast.makeText(MainActivity.this, "I just saw an beacon for the first time!", Toast.LENGTH_LONG).show();
                 prefEditor.putString(THE_BEACON, region.toString());
                 prefEditor.commit();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconId);
+                        tv2.setText("Beacon "+region.toString()+" is seen");
+                    }
+                });
             }
 
             @Override
-            public void didExitRegion(Region region) {
+            public void didExitRegion(final Region region) {
                 Log.i(TAG, "I no longer see an beacon");
                 // Toast.makeText(MainActivity.this, "I no longer see an beacon", Toast.LENGTH_LONG).show();
                 prefEditor.putString(THE_BEACON, "");
                 prefEditor.commit();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconId);
+                        tv2.setText("Beacon "+region.toString() + " is gone");
+                    }
+                });
             }
 
             @Override
-            public void didDetermineStateForRegion(int state, Region region) {
+            public void didDetermineStateForRegion(int state, final Region region) {
                 Log.i(TAG, "I have just switched from seeing/not seeing beacons: " + state);
                 Toast.makeText(MainActivity.this, "I have just switched from seeing/not seeing beacons: " + state, Toast.LENGTH_LONG).show();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconId);
+                        tv2.setText("Beacon "+region.toString() + " changes visibility");
+                    }
+                });
             }
         });
 
@@ -269,10 +294,19 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
             @Override
             public void didRangeBeaconsInRegion(Collection<Beacon> beacons, Region region) {
                 if (beacons.size() > 0) {
-                    Beacon beacon = beacons.iterator().next();
-                    prefEditor.putString(THE_BEACON_DISTANCE, ""+beacon.getDistance());
+                    final Beacon beacon = beacons.iterator().next();
+                    prefEditor.putString(THE_BEACON_DISTANCE, "" + beacon.getDistance());
                     prefEditor.commit();
+                    
                     Log.i(TAG, "The first beacon I see is about " + beacon.getDistance() + " meters away." + beacon.getId1() + ";" + beacon.getId2() + ";" + beacon.getId3());
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconDistance);
+                            tv2.setText("Distance: " + beacon.getDistance()+"m");
+                        }
+                    });
+
                     // Toast.makeText(MainActivity.this, "The first beacon I see is about " + beacons.iterator().next().getDistance() + " meters away.", Toast.LENGTH_LONG).show();
                 }
             }
