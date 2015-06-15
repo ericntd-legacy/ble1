@@ -1,5 +1,8 @@
 package com.example.eric.myapplication;
 
+import android.app.ActivityManager;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -9,6 +12,8 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.RemoteException;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.TaskStackBuilder;
 import android.support.v4.content.LocalBroadcastManager;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
@@ -36,11 +41,17 @@ import java.util.Collection;
 import java.util.List;
 
 
-public class MainActivity extends ActionBarActivity implements ROXIMITYEngineListener, BeaconConsumer {
+public class MainActivity extends ActionBarActivity implements BeaconConsumer {
     private final String TAG = "MainActivity";
 
     private final String THE_BEACON = "theBeacon";
     private final String THE_BEACON_DISTANCE = "theBeaconDistance";
+
+    private final String ID1 = "id1";
+    private final String ID2 = "id2";
+    private final String ID3 = "id3";
+
+    private final String IBEACON_LAYOUT = "m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24";
 
     private BeaconManager beaconManager;
 
@@ -48,6 +59,8 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
     private SharedPreferences.Editor prefEditor;
 
     private TextView tv2;
+
+    private int mId = 101;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,13 +70,19 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
         prefs = this.getSharedPreferences(this.getPackageName(), Context.MODE_PRIVATE);
         prefEditor = prefs.edit();
 
+        String id1 = prefs.getString(ID1, "");
+        String id2 = prefs.getString(ID2, "");
+        String id3 = prefs.getString(ID3, "");
+        String str = "id1: " + id1 + " id2: " + id2 + " id3: " + id3;
+        Toast.makeText(this, "Last beacon was " + str, Toast.LENGTH_SHORT).show();
+
         beaconManager = BeaconManager.getInstanceForApplication(this);
 
         Log.w(TAG, "is the beacon manager bound?" + beaconManager.isAnyConsumerBound());
 
         List<BeaconParser> parsers = beaconManager.getBeaconParsers();
         BeaconParser iBeaconParser = new BeaconParser();
-        iBeaconParser.setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24");
+        iBeaconParser.setBeaconLayout(IBEACON_LAYOUT);
         parsers.add(iBeaconParser);
         // parsers.add(new BeaconParser().setBeaconLayout("m:2-3=0215,i:4-19,i:20-21,i:22-23,p:24-24"));
 
@@ -161,33 +180,34 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
         return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    public void onROXIMITYEngineStarted() {
-        Log.i("main", "started");
-    }
-
-    @Override
-    public void onROXIMITYEngineStopped() {
-        Log.i("main", "stopped");
-    }
+//    @Override
+//    public void onROXIMITYEngineStarted() {
+//        Log.i("main", "started");
+//    }
+//
+//    @Override
+//    public void onROXIMITYEngineStopped() {
+//        Log.i("main", "stopped");
+//    }
 
     @Override
     public void onResume() {
+        Log.i(TAG, "onResume");
         super.onResume();
 
         if (beaconManager.isBound(this)) {
-            Log.i(TAG, "bound");
+            //  Log.i(TAG, "bound");
             beaconManager.setBackgroundMode(false);
         }
 
-        TextView tv = (TextView) this.findViewById(R.id.TxtBeaconId);
-        if (!prefs.getString(THE_BEACON, "").isEmpty()) {
-            tv.setText(prefs.getString(THE_BEACON, ""));
-        }
-
-        if (!prefs.getString(THE_BEACON_DISTANCE, "").isEmpty()) {
-            tv2.setText(prefs.getString(THE_BEACON_DISTANCE, ""));
-        }
+//        TextView tv = (TextView) this.findViewById(R.id.TxtBeaconId);
+//        if (!prefs.getString(THE_BEACON, "").isEmpty()) {
+//            tv.setText(prefs.getString(THE_BEACON, ""));
+//        }
+//
+//        if (!prefs.getString(THE_BEACON_DISTANCE, "").isEmpty()) {
+//            tv2.setText(prefs.getString(THE_BEACON_DISTANCE, ""));
+//        }
 
 //        Log.i(TAG, "ROXIMITY Engine running: " + ROXIMITYEngine.isROXIMITYEngineRunning());
 //
@@ -196,50 +216,50 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
 //        }
     }
 
-    private void createBroadcastRecievers() {
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(ROXConsts.MESSAGE_FIRED);
-        intentFilter.addAction(ROXConsts.BEACON_RANGE_UPDATE);
-        intentFilter.addAction(ROXConsts.WEBHOOK_POSTED);
-
-        LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, intentFilter);
-    }
-
-    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(ROXConsts.MESSAGE_FIRED)) {
-                MessageParcel messageParcel = (MessageParcel) intent.getParcelableExtra(ROXConsts.EXTRA_MESSAGE_PARCEL);
-                handleMessageFired(messageParcel);
-            } else if (intent.getAction().equals(ROXConsts.BEACON_RANGE_UPDATE)) {
-                String rangeJson = intent.getStringExtra(ROXConsts.EXTRA_RANGE_DATA);
-                // handleBeaconRangeUpdate(rangeJson);
-                Object triggerData = intent.getExtras().get(ROXConsts.EXTRA_MESSAGE_TRIGGER);
-                Log.i("main", "trigger data is " + triggerData.getClass());
-            } else if (intent.getAction().equals(ROXConsts.WEBHOOK_POSTED)) {
-                String webhookJson = intent.getStringExtra(ROXConsts.EXTRA_BROADCAST_JSON);
-                handleWebhookPosted(webhookJson);
-            }
-        }
-    };
-
-
-    public void handleMessageFired(MessageParcel messageParcel) {
-        try {
-            Log.i(TAG, "Message fired:" + messageParcel.show(this));
-        } catch (JSONException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void handleWebhookPosted(String webhookJson) {
-        Log.d(TAG, "Webhook posted: " + webhookJson);
-    }
-
-
-    public void handleBeaconRangeUpdate(String rangeUpdate) {
-        Log.i(TAG, "Received a beacon range update:" + rangeUpdate);
-    }
+//    private void createBroadcastRecievers() {
+//        IntentFilter intentFilter = new IntentFilter();
+//        intentFilter.addAction(ROXConsts.MESSAGE_FIRED);
+//        intentFilter.addAction(ROXConsts.BEACON_RANGE_UPDATE);
+//        intentFilter.addAction(ROXConsts.WEBHOOK_POSTED);
+//
+//        LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, intentFilter);
+//    }
+//
+//    private BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+//        @Override
+//        public void onReceive(Context context, Intent intent) {
+//            if (intent.getAction().equals(ROXConsts.MESSAGE_FIRED)) {
+//                MessageParcel messageParcel = (MessageParcel) intent.getParcelableExtra(ROXConsts.EXTRA_MESSAGE_PARCEL);
+//                handleMessageFired(messageParcel);
+//            } else if (intent.getAction().equals(ROXConsts.BEACON_RANGE_UPDATE)) {
+//                String rangeJson = intent.getStringExtra(ROXConsts.EXTRA_RANGE_DATA);
+//                // handleBeaconRangeUpdate(rangeJson);
+//                Object triggerData = intent.getExtras().get(ROXConsts.EXTRA_MESSAGE_TRIGGER);
+//                Log.i("main", "trigger data is " + triggerData.getClass());
+//            } else if (intent.getAction().equals(ROXConsts.WEBHOOK_POSTED)) {
+//                String webhookJson = intent.getStringExtra(ROXConsts.EXTRA_BROADCAST_JSON);
+//                handleWebhookPosted(webhookJson);
+//            }
+//        }
+//    };
+//
+//
+//    public void handleMessageFired(MessageParcel messageParcel) {
+//        try {
+//            Log.i(TAG, "Message fired:" + messageParcel.show(this));
+//        } catch (JSONException e) {
+//            e.printStackTrace();
+//        }
+//    }
+//
+//    public void handleWebhookPosted(String webhookJson) {
+//        Log.d(TAG, "Webhook posted: " + webhookJson);
+//    }
+//
+//
+//    public void handleBeaconRangeUpdate(String rangeUpdate) {
+//        Log.i(TAG, "Received a beacon range update:" + rangeUpdate);
+//    }
 
     @Override
     public void onBeaconServiceConnect() {
@@ -248,45 +268,41 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
         beaconManager.setMonitorNotifier(new MonitorNotifier() {
             @Override
             public void didEnterRegion(final Region region) {
-                Log.i(TAG, "I just saw an beacon for the first time! "+region.toString());
+                Log.i(TAG, "I just saw an beacon for the first time! " + region.toString());
                 // Toast.makeText(MainActivity.this, "I just saw an beacon for the first time!", Toast.LENGTH_LONG).show();
-                prefEditor.putString(THE_BEACON, region.toString());
-                prefEditor.commit();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconId);
-                        tv2.setText("Beacon "+region.toString()+" is seen");
-                    }
-                });
+//                prefEditor.putString(THE_BEACON, region.toString());
+//                prefEditor.commit();
+
+                showNotification(region, "Welcome to our shop", "This is the nth time you have been to our shop");
             }
 
             @Override
             public void didExitRegion(final Region region) {
                 Log.i(TAG, "I no longer see an beacon");
                 // Toast.makeText(MainActivity.this, "I no longer see an beacon", Toast.LENGTH_LONG).show();
-                prefEditor.putString(THE_BEACON, "");
-                prefEditor.commit();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconId);
-                        tv2.setText("Beacon "+region.toString() + " is gone");
-                    }
-                });
+//                prefEditor.putString(THE_BEACON, "");
+//                prefEditor.commit();
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconId);
+//                        tv2.setText("Beacon "+region.toString() + " is gone");
+//                    }
+//                });
+                showNotification(region, "Bye bye", "Hope to see you again soon");
             }
 
             @Override
             public void didDetermineStateForRegion(int state, final Region region) {
                 Log.i(TAG, "I have just switched from seeing/not seeing beacons: " + state);
                 Toast.makeText(MainActivity.this, "I have just switched from seeing/not seeing beacons: " + state, Toast.LENGTH_LONG).show();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconId);
-                        tv2.setText("Beacon "+region.toString() + " changes visibility");
-                    }
-                });
+//                runOnUiThread(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconId);
+//                        tv2.setText("Beacon "+region.toString() + " changes visibility");
+//                    }
+//                });
             }
         });
 
@@ -297,15 +313,23 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
                     final Beacon beacon = beacons.iterator().next();
                     prefEditor.putString(THE_BEACON_DISTANCE, "" + beacon.getDistance());
                     prefEditor.commit();
-                    
+
                     Log.i(TAG, "The first beacon I see is about " + beacon.getDistance() + " meters away." + beacon.getId1() + ";" + beacon.getId2() + ";" + beacon.getId3());
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconDistance);
-                            tv2.setText("Distance: " + beacon.getDistance()+"m");
-                        }
-                    });
+                    if (beacon.getDistance() < 1.0) {
+                        Log.i(TAG, "beacon is intermediate");
+                        Toast.makeText(MainActivity.this, "beacon is closer than 1m", Toast.LENGTH_SHORT).show();
+                        showNotification(region, "Special promotion 50% off", "Product ABC until tomorrow only");
+                    } else {
+//                        runOnUiThread(new Runnable() {
+//                            @Override
+//                            public void run() {
+//                                TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconDistance);
+//                                tv2.setText("Distance: " + beacon.getDistance() + "m");
+//                            }
+//                        });
+                        Log.i(TAG, "beacon is not near");
+                        showNotification(region, "", "Distance: "+beacon.getDistance());
+                    }
 
                     // Toast.makeText(MainActivity.this, "The first beacon I see is about " + beacons.iterator().next().getDistance() + " meters away.", Toast.LENGTH_LONG).show();
                 }
@@ -313,8 +337,18 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
         });
 
         try {
-            Region region = new Region("com.example.eric.myapplication", Identifier.parse("144e71a8-e817-dd8e-488f-29c742921b49"), Identifier.parse("27323"), Identifier.parse("64474"));
-            beaconManager.startMonitoringBeaconsInRegion(region);
+            Region region;
+            // Region region = new Region("com.example.eric.myapplication", Identifier.parse("144e71a8-e817-dd8e-488f-29c742921b49"), Identifier.parse("27323"), Identifier.parse("64474"));
+            String id1 = prefs.getString(ID1, "");
+            String id2 = prefs.getString(ID2, "");
+            String id3 = prefs.getString(ID3, "");
+
+            if (!id1.isEmpty() && !id2.isEmpty() && !id3.isEmpty()) {
+                region = new Region("com.example.eric.myapplication", Identifier.parse(prefs.getString(ID1, "")), Identifier.parse(prefs.getString(ID2, "")), Identifier.parse(prefs.getString(ID3, "")));
+            } else {
+                region = new Region("com.example.eric.myapplication", null, null, null);
+            }
+            // beaconManager.startMonitoringBeaconsInRegion(region);
             beaconManager.startRangingBeaconsInRegion(region);
         } catch (RemoteException e) {
             Log.e(TAG, "", e);
@@ -323,11 +357,76 @@ public class MainActivity extends ActionBarActivity implements ROXIMITYEngineLis
         }
     }
 
+    private void showNotification(final Region region, final String title, final String msg) {
+        Log.i(TAG, "showNotification");
+        if (!isAppOnForeground()) {
+            Log.w(TAG, "app is not in foreground, showing notification");
+            NotificationCompat.Builder mBuilder =
+                    new NotificationCompat.Builder(this)
+                            .setSmallIcon(android.R.drawable.stat_notify_chat)
+                            .setContentTitle(title)
+                            .setContentText(msg);
+// Creates an explicit intent for an Activity in your app
+            Intent resultIntent = new Intent(this, MainActivity.class);
+
+// The stack builder object will contain an artificial back stack for the
+// started Activity.
+// This ensures that navigating backward from the Activity leads out of
+// your application to the Home screen.
+            TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
+// Adds the back stack for the Intent (but not the Intent itself)
+            stackBuilder.addParentStack(MainActivity.class);
+// Adds the Intent that starts the Activity to the top of the stack
+            stackBuilder.addNextIntent(resultIntent);
+            PendingIntent resultPendingIntent =
+                    stackBuilder.getPendingIntent(
+                            0,
+                            PendingIntent.FLAG_UPDATE_CURRENT
+                    );
+            mBuilder.setContentIntent(resultPendingIntent);
+            NotificationManager mNotificationManager =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+// mId allows you to update the notification later on.
+            mNotificationManager.notify(mId, mBuilder.build());
+        } else {
+            Log.w(TAG, "app is in foreground, not showing notification");
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    TextView tv2 = (TextView) MainActivity.this.findViewById(R.id.TxtBeaconId);
+                    tv2.setText(title + "\n" + msg);
+                }
+            });
+        }
+    }
+
+    private boolean isAppOnForeground() {
+        ActivityManager activityManager = (ActivityManager) this.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> services = activityManager
+                .getRunningTasks(Integer.MAX_VALUE);
+        boolean isActivityFound = false;
+
+        if (services.get(0).topActivity.getPackageName().toString()
+                .equalsIgnoreCase(this.getPackageName().toString())) {
+            isActivityFound = true;
+        }
+
+        if (isActivityFound) {
+            return true;
+        } else {
+            // write your code to build a notification.
+            // return the notification you built here
+            return false;
+        }
+    }
+
     @Override
     protected void onPause() {
+        Log.i(TAG, "onPause");
         super.onPause();
         if (beaconManager.isBound(this)) {
-            Log.i(TAG, "bound");
+            // Log.i(TAG, "bound");
 
             beaconManager.setBackgroundMode(true);
         }
